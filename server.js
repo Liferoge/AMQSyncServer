@@ -1,16 +1,31 @@
 import express from "express";
+import http from "http";
+import { Server } from "socket.io";
 
 const app = express();
 
-const PORT = process.env.PORT || 3000;
+app.use(express.static("public"));
 
-app.get("/", (req, res) => {
-    res.send(`
-        <h1>AMQSync Server</h1>
-        <p>Servidor online.</p>
-    `);
+const server = http.createServer(app);
+
+const io = new Server(server, {
+    cors: {
+        origin: "*"
+    }
 });
 
-app.listen(PORT, () => {
+io.on("connection", (socket) => {
+
+    console.log("Cliente conectado:", socket.id);
+
+    socket.on("disconnect", () => {
+        console.log("Cliente desconectado:", socket.id);
+    });
+
+});
+
+const PORT = process.env.PORT || 3000;
+
+server.listen(PORT, () => {
     console.log(`AMQSync iniciado na porta ${PORT}`);
 });
