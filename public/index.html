@@ -345,6 +345,26 @@
   <script>
     const $ = (id) => document.getElementById(id);
 
+    const LOG_LIMIT = 80;
+
+const VISIBLE_EVENTS = new Set([
+  "draft:update",
+  "answer:hash",
+  "answer:submit",
+  "answer:reveal",
+  "hint:use",
+  "score:update",
+  "round:update",
+  "player:joined",
+  "player:left"
+]);
+
+const VISIBLE_SYSTEM = new Set([
+  "connect",
+  "disconnect",
+  "identified"
+]);
+
     const roomInput = $("roomInput");
     const nameInput = $("nameInput");
     const connectBtn = $("connectBtn");
@@ -376,24 +396,29 @@
     }
 
     function appendEntry(tag, title, payload, type = "good") {
-      eventCount += 1;
-      countText.textContent = String(eventCount);
+  eventCount += 1;
+  countText.textContent = String(eventCount);
 
-      const entry = document.createElement("div");
-      entry.className = "entry";
+  const entry = document.createElement("div");
+  entry.className = "entry";
 
-      entry.innerHTML = `
-        <div class="meta">
-          <span class="tag ${type}">${tag}</span>
-          <span>${timeStamp()}</span>
-          <span>${title}</span>
-        </div>
-        <div>${formatValue(payload)}</div>
-      `;
+  entry.innerHTML = `
+    <div class="meta">
+      <span class="tag ${type}">${tag}</span>
+      <span>${timeStamp()}</span>
+      <span>${title}</span>
+    </div>
+    <div>${formatValue(payload)}</div>
+  `;
 
-      log.appendChild(entry);
-      log.scrollTop = log.scrollHeight;
-    }
+  log.prepend(entry);
+
+  while (log.children.length > LOG_LIMIT) {
+    log.removeChild(log.lastElementChild);
+  }
+
+  log.scrollTop = 0;
+}
 
     function setStatus(text, type = "good") {
       statusText.textContent = text;
@@ -458,78 +483,63 @@
       });
 
       socket.on("connect", () => {
-        socket.emit("identify", {
-          username: displayName,
-          displayName,
-          roomId,
-          userscript: "AMQSync Console",
-          client: "browser",
-          version: "console",
-          teamNumber: 1
-        });
+  socket.emit("identify", {
+    username: displayName,
+    displayName,
+    roomId,
+    userscript: "AMQSync Console",
+    client: "browser",
+    version: "console",
+    teamNumber: 1
+  });
 
-        socket.emit("state:request");
-        setStatus("conectado", "good");
-        socketIdText.textContent = socket.id || "-";
-        appendEntry("system", "connect", { socketId: socket.id, roomId, displayName }, "good");
-      });
+  socket.emit("state:request");
+  setStatus("conectado", "good");
+  socketIdText.textContent = socket.id || "-";
+  appendEntry("system", "connect", { socketId: socket.id, roomId, displayName }, "good");
+});
 
-      socket.on("disconnect", (reason) => {
-        setStatus("desconectado", "bad");
-        socketIdText.textContent = "-";
-        appendEntry("system", "disconnect", reason, "bad");
-      });
+socket.on("disconnect", (reason) => {
+  setStatus("desconectado", "bad");
+  socketIdText.textContent = "-";
+  appendEntry("system", "disconnect", reason, "bad");
+});
 
-      socket.on("identified", (packet) => {
-        appendEntry("identified", "handshake", packet, "warn");
-        if (packet?.room) {
-          renderSnapshot(packet.room);
-          renderPlayers(packet.room.players || []);
-        }
-      });
+socket.on("identified", (packet) => {
+  appendEntry("identified", "handshake", packet, "warn");
+  if (packet?.room) {
+    renderSnapshot(packet.room);
+    renderPlayers(packet.room.players || []);
+  }
+});
 
-      socket.on("room:snapshot", (snapshot) => {
-        appendEntry("room:snapshot", "snapshot", snapshot, "warn");
-        renderSnapshot(snapshot);
-        renderPlayers(snapshot.players || []);
-      });
+socket.on("room:snapshot", (snapshot) => {
+  renderSnapshot(snapshot);
+  renderPlayers(snapshot.players || []);
+});
 
-      socket.on("room:state", (snapshot) => {
-        appendEntry("room:state", "state", snapshot, "warn");
-        renderSnapshot(snapshot);
-        renderPlayers(snapshot.players || []);
-      });
+socket.on("room:state", (snapshot) => {
+  renderSnapshot(snapshot);
+  renderPlayers(snapshot.players || []);
+});
 
-      socket.on("room:players", (players) => {
-        appendEntry("room:players", "players", players, "warn");
-        renderPlayers(players);
-      });
+socket.on("room:players", (players) => {
+  renderPlayers(players);
+});
 
-      socket.on("player:joined", (payload) => {
-        appendEntry("player:joined", "join", payload, "good");
-      });
+socket.on("player:joined", (payload) => {
+  appendEntry("player:joined", "join", payload, "good");
+});
 
-      socket.on("player:left", (payload) => {
-        appendEntry("player:left", "leave", payload, "bad");
-      });
+socket.on("player:left", (payload) => {
+  appendEntry("player:left", "leave", payload, "bad");
+});
 
-      socket.onAny((event, payload) => {
-        if (
-          event === "connect" ||
-          event === "disconnect" ||
-          event === "identified" ||
-          event === "room:snapshot" ||
-          event === "room:state" ||
-          event === "room:players" ||
-          event === "player:joined" ||
-          event === "player:left"
-        ) {
-          return;
-        }
-
-        appendEntry(event, event, payload, "good");
-      });
-    }
+socket.onAny((event, payload) => {
+  if (VISIBLE_SYSTEM.has(event) || VISIBLE_EVENTS.has(event)) {
+    appendEntry(event, event, payload, "good");
+  }
+});
 
     connectBtn.addEventListener("click", connect);
 
