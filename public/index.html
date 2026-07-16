@@ -124,35 +124,71 @@
     }
 
     function connect() {
-      if (socket) socket.disconnect();
+  if (socket) {
+    socket.disconnect();
+    socket = null;
+  }
 
-      const url = serverUrl.value.trim() || window.location.origin;
-      const room = roomId.value.trim() || "global";
-      const name = playerName.value.trim() || "Console";
+  const roomIdValue = roomId.value.trim() || "global";
+  const displayName = playerName.value.trim() || "Console Viewer";
 
-      roomText.textContent = room;
-      setStatus("conectando...", "warn");
+  roomText.textContent = roomIdValue;
+  setStatus("conectando...", "warn");
 
-      socket = io(url, { transports: ["websocket"] });
+  socket = io({
+    transports: ["websocket"]
+  });
 
-      socket.on("connect", () => {
-        socketIdText.textContent = socket.id || "-";
-        setStatus("conectado", "good");
-        write("connect", { socketId: socket.id, url, room, name }, "good");
-        socket.emit("join", { roomId: room });
-      });
+  socket.on("connect", () => {
+    socket.emit("identify", {
+      username: displayName,
+      displayName,
+      roomId: roomIdValue,
+      userscript: "AMQSync Console",
+      client: "browser",
+      version: "console",
+      teamNumber: 1
+    });
 
-      socket.on("disconnect", (reason) => {
-        socketIdText.textContent = "-";
-        setStatus("desconectado", "bad");
-        write("disconnect", reason, "bad");
-      });
+    socket.emit("state:request");
+    setStatus("conectado", "good");
+    socketIdText.textContent = socket.id || "-";
+    write("system", { socketId: socket.id, roomId: roomIdValue, displayName }, "good");
+  });
 
-      socket.on("joined", (data) => write("joined", data, "good"));
-      socket.on("system", (data) => write("system", data, "warn"));
-      socket.on("message", (data) => write("message", data, "good"));
-      socket.on("message:ack", (data) => write("ack", data, "warn"));
+  socket.on("disconnect", (reason) => {
+    setStatus("desconectado", "bad");
+    socketIdText.textContent = "-";
+    write("disconnect", reason, "bad");
+  });
+
+  socket.on("identified", (packet) => {
+    write("identified", packet, "warn");
+  });
+
+  socket.on("room:snapshot", (snapshot) => write("room:snapshot", snapshot, "warn"));
+  socket.on("room:state", (snapshot) => write("room:state", snapshot, "warn"));
+  socket.on("room:players", (players) => write("room:players", players, "warn"));
+  socket.on("player:joined", (payload) => write("player:joined", payload, "good"));
+  socket.on("player:left", (payload) => write("player:left", payload, "bad"));
+
+  socket.onAny((event, payload) => {
+    if (
+      event === "connect" ||
+      event === "disconnect" ||
+      event === "identified" ||
+      event === "room:snapshot" ||
+      event === "room:state" ||
+      event === "room:players" ||
+      event === "player:joined" ||
+      event === "player:left"
+    ) {
+      return;
     }
+
+    write(event, payload, "good");
+  });
+}
 
     connectBtn.addEventListener("click", connect);
     clearBtn.addEventListener("click", () => log.innerHTML = "");
