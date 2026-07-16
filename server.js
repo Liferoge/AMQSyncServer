@@ -281,6 +281,8 @@ function patchRoomState(room, event, payload, playerKey) {
 
 io.on("connection", (socket) => {
   socket.on("identify", (payload = {}) => {
+    console.log("IDENTIFY RECEIVED");
+console.log(payload);
     const info = normalizeClientInfo(payload);
     const { room, player } = attachPlayer(socket, info);
 
