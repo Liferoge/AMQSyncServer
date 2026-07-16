@@ -17,7 +17,15 @@ const io = new Server(server, {
   }
 });
 
-const users = new Map();
+const defaultClientInfo = {
+  username: null,
+  avatar: "",
+  game: "AMQ",
+  version: "0.2.0",
+  userscript: "AMQSync",
+  client: "browser",
+  identified: false
+};
 
 app.use(express.static(publicDir));
 
@@ -29,73 +37,165 @@ app.get("/health", (_, res) => {
   });
 });
 
-function makeMessage(from, text) {
+function now() {
+  return new Date().toISOString();
+}
+
+function makeEvent(type, from, text, extra = {}) {
   return {
+    type,
     from,
     text,
-    at: new Date().toISOString()
+    at: now(),
+    ...extra
   };
 }
 
-function getUsername(socket) {
-  return users.get(socket.id) || socket.data.username || socket.id;
+function makeSystemMessage(text) {
+  return makeEvent("system", "server", text);
+}
+
+function makeChatMessage(from, text, extra = {}) {
+  return makeEvent("chat", from, text, extra);
+}
+
+function normalizeClientInfo(payload) {
+  if (typeof payload === "string") {
+    payload = { username: payload };
+  }
+
+  const username = String(payload?.username ?? "").trim() || "Anônimo";
+
+  return {
+    username,
+    avatar: String(payload?.avatar ?? "").trim(),
+    game: String(payload?.game ?? "AMQ").trim() || "AMQ",
+    version: String(payload?.version ?? "0.2.0").trim() || "0.2.0",
+    userscript: String(payload?.userscript ?? "AMQSync").trim() || "AMQSync",
+    client: String(payload?.client ?? "browser").trim() || "browser",
+    identified: true
+  };
+}
+
+function getClientInfo(socket) {
+  return {
+    ...defaultClientInfo,
+    ...(socket.data.clientInfo ?? {})
+  };
+}
+
+function serializePlayer(socket) {
+  const info = getClientInfo(socket);
+  const displayName = info.username?.trim()
+    ? info.username
+    : `Sem nome (${socket.id.slice(0, 6)})`;
+
+  return {
+    socketId: socket.id,
+    username: info.username,
+    displayName,
+    avatar: info.avatar,
+    game: info.game,
+    version: info.version,
+    userscript: info.userscript,
+    client: info.client,
+    identified: Boolean(info.identified)
+  };
+}
+
+function getPlayers() {
+  return [...io.sockets.sockets.values()].map(serializePlayer);
+}
+
+function broadcastPlayers() {
+  io.emit("players", getPlayers());
 }
 
 io.on("connection", (socket) => {
+  socket.data.clientInfo = {
+    ...defaultClientInfo
+  };
+
   console.log(`[socket] cliente conectado: ${socket.id}`);
 
-  socket.emit("message", makeMessage(
-    "server",
-    "Conexão aberta. Envie seu nome para identificar o usuário."
-  ));
+  socket.emit(
+    "system",
+    makeSystemMessage("Conexão aberta. Identifique-se com seu nome.")
+  );
+
+  socket.emit("players", getPlayers());
 
   socket.on("identify", (payload) => {
-    const usernameRaw = typeof payload === "string"
-      ? payload
-      : payload?.username;
+    const clientInfo = normalizeClientInfo(payload);
 
-    const username = String(usernameRaw || "").trim() || "Anônimo";
+    socket.data.clientInfo = {
+      ...getClientInfo(socket),
+      ...clientInfo,
+      identified: true,
+      socketId: socket.id
+    };
 
-    users.set(socket.id, username);
-    socket.data.username = username;
-
-    console.log(`[socket] identificado: ${socket.id} => ${username}`);
+    console.log(
+      `[socket] identificado: ${socket.id} => ${socket.data.clientInfo.username}`
+    );
 
     socket.emit("identified", {
       ok: true,
-      username,
-      socketId: socket.id
+      clientInfo: {
+        ...socket.data.clientInfo,
+        socketId: socket.id
+      }
     });
 
     socket.broadcast.emit(
-      "message",
-      makeMessage("server", `${username} entrou na sala`)
+      "system",
+      makeSystemMessage(`${socket.data.clientInfo.username} entrou.`)
     );
+
+    broadcastPlayers();
   });
 
-  socket.on("message", (payload) => {
+  const handleChat = (payload) => {
     const text = typeof payload === "string"
       ? payload
-      : payload?.text ?? JSON.stringify(payload);
+      : payload?.text ?? "";
 
-    const from = getUsername(socket);
+    const cleanText = String(text).trim();
+    if (!cleanText) return;
 
-    console.log(`[socket] mensagem recebida de ${socket.id} (${from}): ${text}`);
+    const from = getClientInfo(socket).username || socket.id;
 
-    io.emit("message", makeMessage(from, text));
+    console.log(`[socket] chat de ${socket.id} (${from}): ${cleanText}`);
+
+    io.emit(
+      "chat",
+      makeChatMessage(from, cleanText, {
+        socketId: socket.id
+      })
+    );
+  };
+
+  socket.on("chat", handleChat);
+  socket.on("message", handleChat); // compatibilidade com as etapas anteriores
+
+  socket.on("request_players", () => {
+    socket.emit("players", getPlayers());
   });
 
   socket.on("disconnect", (reason) => {
-    const username = users.get(socket.id) || socket.data.username || socket.id;
-
-    users.delete(socket.id);
+    const clientInfo = getClientInfo(socket);
+    const username = clientInfo.username || socket.id;
 
     console.log(`[socket] cliente desconectado: ${socket.id} (${reason})`);
 
     socket.broadcast.emit(
-      "message",
-      makeMessage("server", `${username} saiu (${reason})`)
+      "system",
+      makeSystemMessage(`${username} saiu (${reason})`)
     );
+
+    setTimeout(() => {
+      broadcastPlayers();
+    }, 0);
   });
 });
 
