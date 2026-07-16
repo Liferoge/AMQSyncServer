@@ -322,20 +322,25 @@ console.log(payload);
     }
 
     const roomId = socket.data.roomId || normalizeRoomId(payload?.roomId);
-    const room = getRoom(roomId);
-    const playerKey = socket.data.playerKey || socket.id;
+const room = getRoom(roomId);
+const playerKey = socket.data.playerKey || socket.id;
 
-    const publicPayload = {
-      ...(safeObject(payload)),
-      roomId: room.id,
-      playerKey,
-      player: socket.data.clientInfo?.displayName || socket.id,
-      displayName: socket.data.clientInfo?.displayName || socket.id,
-      teamNumber: socket.data.clientInfo?.teamNumber || 1
-    };
+const senderName = normalizeText(
+  payload?.player ?? socket.data.clientInfo?.displayName ?? socket.id,
+  socket.id
+);
 
-    patchRoomState(room, event, publicPayload, playerKey);
-    io.to(room.id).emit(event, publicPayload);
+const publicPayload = {
+  ...(safeObject(payload)),
+  roomId: room.id,
+  playerKey,
+  player: senderName,
+  displayName: senderName,
+  teamNumber: socket.data.clientInfo?.teamNumber || 1
+};
+
+patchRoomState(room, event, publicPayload, playerKey);
+io.to(room.id).emit(event, publicPayload);
 
     if (
       event === "draft:update" ||
