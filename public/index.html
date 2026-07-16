@@ -3,7 +3,7 @@
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <title>AMQSync Test - Refatorado</title>
+  <title>AMQSync Test - SongArtistMode</title>
   <style>
     :root {
       color-scheme: light;
@@ -40,7 +40,7 @@
 
     .grid {
       display: grid;
-      grid-template-columns: minmax(0, 2fr) minmax(260px, 1fr);
+      grid-template-columns: minmax(0, 2fr) minmax(280px, 1fr);
       gap: 16px;
       align-items: start;
     }
@@ -145,6 +145,12 @@
       color: var(--muted);
     }
 
+    .small-meta {
+      font-size: 0.95rem;
+      color: var(--muted);
+      margin-top: 6px;
+    }
+
     @media (max-width: 900px) {
       .grid {
         grid-template-columns: 1fr;
@@ -154,15 +160,23 @@
 </head>
 <body>
   <h1>AMQSync</h1>
-  <p class="hint">Refatoração: identificação do usuário, lista de conectados e chat separado de mensagem genérica.</p>
+  <p class="hint">
+    Base preparada para o songartistmode: estado da sala, jogadores conectados e eventos em tempo real.
+  </p>
 
   <div class="grid">
     <section class="card">
-      <h2>Chat</h2>
+      <h2>Interface</h2>
       <div id="status">Conectando...</div>
 
       <div class="row">
-        <input id="messageInput" type="text" placeholder="Digite uma mensagem..." autocomplete="off" disabled />
+        <input
+          id="messageInput"
+          type="text"
+          placeholder="Digite uma mensagem..."
+          autocomplete="off"
+          disabled
+        />
         <button id="sendButton" type="button" disabled>Enviar</button>
       </div>
 
@@ -172,6 +186,10 @@
     <aside class="card">
       <h2>Conectados (<span id="playersCount">0</span>)</h2>
       <div id="players"></div>
+      <div class="small-meta">
+        O painel é atualizado quando o servidor envia <code>room:snapshot</code>,
+        <code>room:players</code> e eventos de estado.
+      </div>
     </aside>
   </div>
 
