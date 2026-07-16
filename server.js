@@ -333,7 +333,7 @@ io.on("connection", (socket) => {
     };
 
     patchRoomState(room, event, publicPayload, playerKey);
-    socket.to(room.id).emit(event, publicPayload);
+    io.to(room.id).emit(event, publicPayload);
 
     if (
       event === "draft:update" ||
