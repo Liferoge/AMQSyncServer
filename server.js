@@ -1,6 +1,11 @@
 import express from "express";
 import http from "http";
+import path from "path";
+import { fileURLToPath } from "url";
 import { Server } from "socket.io";
+
+const __filename = fileURLToPath(import.meta.url);
+const __dirname = path.dirname(__filename);
 
 const PORT = process.env.PORT || 3000;
 const DEFAULT_ROOM = "global";
@@ -13,10 +18,15 @@ const io = new Server(server, {
   cors: { origin: "*" }
 });
 
+app.use(express.static(path.join(__dirname, "public")));
+
+app.get("/", (_, res) => {
+  res.sendFile(path.join(__dirname, "public", "index.html"));
+});
+
 app.get("/health", (_, res) => {
   res.json({ ok: true });
 });
-
 function nowIso() {
   return new Date().toISOString();
 }
