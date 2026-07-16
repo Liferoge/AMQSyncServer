@@ -27,14 +27,26 @@ app.get("/health", (_, res) => {
   });
 });
 
+function makeMessage(from, text) {
+  return {
+    from,
+    text,
+    at: new Date().toISOString()
+  };
+}
+
 io.on("connection", (socket) => {
   console.log(`[socket] cliente conectado: ${socket.id}`);
 
-  socket.emit("message", {
-    from: "server",
-    text: "Servidor conectado e aguardando mensagens.",
-    at: new Date().toISOString()
-  });
+  socket.emit("message", makeMessage(
+    "server",
+    "Você entrou no AMQSync. Suas mensagens agora serão enviadas para todos os clientes conectados."
+  ));
+
+  socket.broadcast.emit("message", makeMessage(
+    "server",
+    `Um novo cliente entrou: ${socket.id}`
+  ));
 
   socket.on("message", (payload) => {
     const text = typeof payload === "string"
@@ -43,15 +55,19 @@ io.on("connection", (socket) => {
 
     console.log(`[socket] mensagem recebida de ${socket.id}: ${text}`);
 
-    socket.emit("message", {
-      from: "server",
-      text: `Recebi: ${text}`,
-      at: new Date().toISOString()
-    });
+    io.emit("message", makeMessage(
+      payload?.from ?? socket.id,
+      text
+    ));
   });
 
   socket.on("disconnect", (reason) => {
     console.log(`[socket] cliente desconectado: ${socket.id} (${reason})`);
+
+    socket.broadcast.emit("message", makeMessage(
+      "server",
+      `Cliente saiu: ${socket.id} (${reason})`
+    ));
   });
 });
 

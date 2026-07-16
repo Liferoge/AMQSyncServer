@@ -17,37 +17,27 @@ const setStatus = (message) => {
 const socket = io();
 
 socket.on("connect", () => {
-  setStatus(`Conectado
-
-ID: ${socket.id}`);
+  setStatus(`Conectado\n\nID: ${socket.id}`);
   appendLog(`Conectado com ID ${socket.id}`);
 });
 
 socket.on("disconnect", (reason) => {
-  setStatus(`Desconectado
-
-Motivo: ${reason}`);
+  setStatus(`Desconectado\n\nMotivo: ${reason}`);
   appendLog(`Desconectado: ${reason}`);
 });
 
 socket.on("connect_error", (error) => {
-  setStatus(`Erro de conexão
-
-${error.message}`);
+  setStatus(`Erro de conexão\n\n${error.message}`);
   appendLog(`Erro de conexão: ${error.message}`);
 });
 
 socket.io.on("reconnect_attempt", (attempt) => {
-  setStatus(`Reconectando...
-
-Tentativa: ${attempt}`);
+  setStatus(`Reconectando...\n\nTentativa: ${attempt}`);
   appendLog(`Tentando reconectar (${attempt})`);
 });
 
 socket.io.on("reconnect", (attempt) => {
-  setStatus(`Reconectado
-
-Tentativa: ${attempt}`);
+  setStatus(`Reconectado\n\nTentativa: ${attempt}`);
   appendLog(`Reconectado após ${attempt} tentativa(s)`);
 });
 
@@ -62,12 +52,12 @@ const sendMessage = () => {
   if (!text) return;
 
   socket.emit("message", {
-    from: "client",
+    from: socket.id,
     text,
     at: new Date().toISOString()
   });
 
-  appendLog(`client: ${text}`);
+  appendLog(`eu: ${text}`);
   input.value = "";
   input.focus();
 };
