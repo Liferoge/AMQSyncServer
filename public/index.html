@@ -3,7 +3,7 @@
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <title>AMQSync Test - Etapa 3</title>
+  <title>AMQSync Test - Etapa 4</title>
   <style>
     :root { color-scheme: light; }
     body {
@@ -51,6 +51,11 @@
       cursor: pointer;
     }
     button:active { transform: translateY(1px); }
+    button:disabled {
+      opacity: 0.5;
+      cursor: not-allowed;
+      transform: none;
+    }
     #log {
       display: grid;
       gap: 8px;
@@ -72,12 +77,12 @@
 </head>
 <body>
   <h1>AMQSync</h1>
-  <p class="hint">Etapa 3: broadcast. As mensagens enviadas por um cliente aparecem para todos os clientes conectados.</p>
+  <p class="hint">Etapa 4: identificação do usuário. Cada conexão agora recebe um nome.</p>
   <div id="status">Conectando...</div>
 
   <div class="row">
-    <input id="messageInput" type="text" placeholder="Digite uma mensagem..." autocomplete="off" />
-    <button id="sendButton" type="button">Enviar</button>
+    <input id="messageInput" type="text" placeholder="Digite uma mensagem..." autocomplete="off" disabled />
+    <button id="sendButton" type="button" disabled>Enviar</button>
   </div>
 
   <div id="log"></div>

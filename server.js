@@ -17,6 +17,8 @@ const io = new Server(server, {
   }
 });
 
+const users = new Map();
+
 app.use(express.static(publicDir));
 
 app.get("/health", (_, res) => {
@@ -35,39 +37,65 @@ function makeMessage(from, text) {
   };
 }
 
+function getUsername(socket) {
+  return users.get(socket.id) || socket.data.username || socket.id;
+}
+
 io.on("connection", (socket) => {
   console.log(`[socket] cliente conectado: ${socket.id}`);
 
   socket.emit("message", makeMessage(
     "server",
-    "Você entrou no AMQSync. Suas mensagens agora serão enviadas para todos os clientes conectados."
+    "Conexão aberta. Envie seu nome para identificar o usuário."
   ));
 
-  socket.broadcast.emit("message", makeMessage(
-    "server",
-    `Um novo cliente entrou: ${socket.id}`
-  ));
+  socket.on("identify", (payload) => {
+    const usernameRaw = typeof payload === "string"
+      ? payload
+      : payload?.username;
+
+    const username = String(usernameRaw || "").trim() || "Anônimo";
+
+    users.set(socket.id, username);
+    socket.data.username = username;
+
+    console.log(`[socket] identificado: ${socket.id} => ${username}`);
+
+    socket.emit("identified", {
+      ok: true,
+      username,
+      socketId: socket.id
+    });
+
+    socket.broadcast.emit(
+      "message",
+      makeMessage("server", `${username} entrou na sala`)
+    );
+  });
 
   socket.on("message", (payload) => {
     const text = typeof payload === "string"
       ? payload
       : payload?.text ?? JSON.stringify(payload);
 
-    console.log(`[socket] mensagem recebida de ${socket.id}: ${text}`);
+    const from = getUsername(socket);
 
-    io.emit("message", makeMessage(
-      payload?.from ?? socket.id,
-      text
-    ));
+    console.log(`[socket] mensagem recebida de ${socket.id} (${from}): ${text}`);
+
+    io.emit("message", makeMessage(from, text));
   });
 
   socket.on("disconnect", (reason) => {
+    const username = users.get(socket.id) || socket.data.username || socket.id;
+
+    users.delete(socket.id);
+
     console.log(`[socket] cliente desconectado: ${socket.id} (${reason})`);
 
-    socket.broadcast.emit("message", makeMessage(
-      "server",
-      `Cliente saiu: ${socket.id} (${reason})`
-    ));
+    socket.broadcast.emit(
+      "message",
+      makeMessage("server", `${username} saiu (${reason})`)
+    );
   });
 });
 
