@@ -30,6 +30,26 @@ app.get("/health", (_, res) => {
 io.on("connection", (socket) => {
   console.log(`[socket] cliente conectado: ${socket.id}`);
 
+  socket.emit("message", {
+    from: "server",
+    text: "Servidor conectado e aguardando mensagens.",
+    at: new Date().toISOString()
+  });
+
+  socket.on("message", (payload) => {
+    const text = typeof payload === "string"
+      ? payload
+      : payload?.text ?? JSON.stringify(payload);
+
+    console.log(`[socket] mensagem recebida de ${socket.id}: ${text}`);
+
+    socket.emit("message", {
+      from: "server",
+      text: `Recebi: ${text}`,
+      at: new Date().toISOString()
+    });
+  });
+
   socket.on("disconnect", (reason) => {
     console.log(`[socket] cliente desconectado: ${socket.id} (${reason})`);
   });
